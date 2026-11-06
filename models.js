@@ -92,7 +92,7 @@ function createCone(segments = 64) {
     const sMid = Math.sin(mid), cMid = Math.cos(mid);
     positions.push(s, -1, c, 0, 1, 0);
     normals.push(h * s / len, r / len, h * c / len, h * sMid / len, r / len, h * cMid / len);
-    tangents.push(c, 0, -s, cMid, 0, -sMid);
+    tangents.push(c, 0, -s, cMid, 0, -sMid);  // #3: the tangent points the way u grows, same as the cylinder
     texCoords.push(u, 0, u + 0.5 / segments, 1);
   }
   for (let i = 0; i < segments; i++) {
@@ -142,8 +142,8 @@ function createSphere(uSegments = 64, vSegments = 32, uRepeat = 1) {
       const x = s * Math.sin(phi), y = Math.cos(phi), z = c * Math.sin(phi);
       positions.push(x, y, z);
       normals.push(x, y, z);
-      tangents.push(c, 0, -s);
-      texCoords.push(u * uRepeat, 1 - i / vSegments);
+      tangents.push(c, 0, -s);  // #3: the tangent points the way u grows
+      texCoords.push(u * uRepeat, 1 - i / vSegments);  // #1: v is 1 at the top and 0 at the bottom
     }
   }
 
@@ -180,8 +180,8 @@ function createTorus(R = 1, r = 0.28, uSegments = 64, vSegments = 24, uRepeat = 
       const s = Math.sin(theta), c = Math.cos(theta);
       positions.push((R + r * cosp) * s, r * sinp, (R + r * cosp) * c);
       normals.push(cosp * s, sinp, cosp * c);
-      tangents.push(c, 0, -s);
-      texCoords.push(u * uRepeat, v);
+      tangents.push(c, 0, -s);  // #3: the tangent points the way u grows
+      texCoords.push(u * uRepeat, v);  // #1: u goes around the big ring and v goes around the tube
     }
   }
 

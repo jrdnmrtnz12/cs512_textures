@@ -39,7 +39,7 @@ uniform vec3 uLightPos;
 uniform sampler2D uTexture;
 uniform int uMapping;  // 0 = bump mapping, 1 = normal mapping
 // #2: 2 = plain texture with no bumps, used for the video
-// #1: 3 = just the image with no lighting, used for the night sky
+// #4: 3 = just the image with no lighting, used for the night sky
 uniform vec3 uNormalColor;  // #3: the color of a normal mapped part, since its texture only stores normals
 
 out vec4 fragColor;
@@ -54,7 +54,7 @@ float height(vec2 uv) {
 }
 
 void main() {
-  // #1: the sky is seen from inside its ball, so it skips the lighting and just shows the image
+  // #4: the sky is seen from inside its ball, so it skips the lighting and just shows the image
   if (uMapping == 3) {
     fragColor = vec4(texture(uTexture, vTexCoord).rgb, 1.0);
     return;
@@ -84,7 +84,7 @@ void main() {
   } else {
     // Normal mapping: the texture stores the tangent-space normal in [0, 1]
     n = normalize(texture(uTexture, vTexCoord).rgb * 2.0 - 1.0);
-    baseColor = uNormalColor;
+    baseColor = uNormalColor;  // #3: each part picks its own color, so the hat can be black and the ring gold
   }
 
   vec3 Ka = 0.2 * baseColor;
@@ -136,7 +136,7 @@ vertEditor.value = VERTEX_SHADER;
 fragEditor.value = FRAGMENT_SHADER;
 
 let program, uModelView, uProjection, uLightPos, uMapping;
-let uNormalColor;
+let uNormalColor;  // #3: where the color for normal mapped parts gets sent
 
 function updateProgram() {
   try {
@@ -206,13 +206,14 @@ function loadTexture(url) {
 
 const brickTexture = loadTexture("brick.png");
 const normalTexture = loadTexture("texture2.jpg");
+
+// #1: the new images: lumpy snow, the carrot, the button eyes and the night sky
 const snowTexture = loadTexture("snow.png");
 const carrotTexture = loadTexture("carrot.png");
 const buttonTexture = loadTexture("button.png");
 const nightTexture = loadTexture("night.png");
 
-// #2: starts the video playing. it has to be muted or the browser won't start it on its own.
-// this texture has no mipmaps since they would have to be rebuilt every frame
+// #2: starts the video playing. it has to be muted or the browser won't start it on its own
 function loadVideo(url) {
   const video = document.createElement("video");
   video.src = url;
@@ -223,6 +224,9 @@ function loadVideo(url) {
   return video;
 }
 const snowVideo = loadVideo("snowVideo.mp4");
+
+// #2: the video's texture. it's one light blue pixel until the first frame is ready, and it uses
+// LINEAR instead of mipmaps since mipmaps would have to be rebuilt every frame
 const videoTexture = gl.createTexture();
 gl.bindTexture(gl.TEXTURE_2D, videoTexture);
 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([200, 220, 255, 255]));
@@ -239,15 +243,15 @@ function updateVideoTexture() {
 }
 
 const BUMP_MAPPING = 0, NORMAL_MAPPING = 1;
-const PLAIN_TEXTURE = 2, NO_LIGHTING = 3;
+const PLAIN_TEXTURE = 2, NO_LIGHTING = 3;  // #2, #4: the two new uMapping values
 
 // #1: every part of the snowman. offset is where it sits, size is how much it's stretched on each axis,
 // and turn is how it's rotated (only some parts need one). color only matters for normal mapped parts
-const NO_TURN = rotateZ(0);
-const ARM_LENGTH = 0.78;
-const GOLD = [0.85, 0.65, 0.3], HAT_BLACK = [0.06, 0.06, 0.07];
+const NO_TURN = rotateZ(0);   // #1: a turn of 0, for parts that don't turn
+const ARM_LENGTH = 0.78;      // #1: half the arm's length, since the cylinder goes from y = -1 to 1
+const GOLD = [0.85, 0.65, 0.3], HAT_BLACK = [0.06, 0.06, 0.07];   // #3: colors for the normal mapped parts
 const objects = [
-  // #1: the night sky, a huge ball around the whole scene with the star image on it
+  // #4: the night sky, a huge ball around the whole scene with the star image on it
   { mesh: sphereMesh, texture: nightTexture, mapping: NO_LIGHTING, offset: [0, 0, 0], size: [40, 40, 40] },
 
   // #1: the skeleton's cube, flattened into the brick platform the snowman stands on
@@ -257,7 +261,7 @@ const objects = [
   { mesh: sphereMesh, texture: snowTexture, mapping: BUMP_MAPPING, offset: [0, -1, 0], size: [1.1, 1.1, 1.1] },
   { mesh: sphereMesh, texture: snowTexture, mapping: BUMP_MAPPING, offset: [0, 0.7, 0], size: [0.7, 0.7, 0.7] },
 
-  // #1: the skeleton's cylinder as the top hat, plus a wide flat one for the brim
+  // #3: normal mapping. the skeleton's cylinder as the black top hat, plus a wide flat one for the brim
   { mesh: cylinderMesh, texture: normalTexture, mapping: NORMAL_MAPPING, offset: [0, 1.85, 0], size: [0.45, 0.5, 0.45], color: HAT_BLACK },
   { mesh: cylinderMesh, texture: normalTexture, mapping: NORMAL_MAPPING, offset: [0, 1.33, 0], size: [0.72, 0.05, 0.72], color: HAT_BLACK },
 
@@ -341,14 +345,14 @@ function render(time) {
   const rotation = multiply(multiply(rotateY(dragRotY), rotateX(dragRotX)), axisRotation);
 
   gl.activeTexture(gl.TEXTURE0);
-  updateVideoTexture();
+  updateVideoTexture();  // #2: gets the video's newest frame before drawing
   for (const { mesh, texture, mapping, offset, size, turn = NO_TURN, color = GOLD } of objects) {
     // #1: M_part = T * R * S puts the part in the scene, and the rotation goes on the left of that
     // so the whole snowman turns as one piece instead of each part spinning on its own
     const part = multiply(translate(...offset), multiply(turn, scale(...size)));
     gl.uniformMatrix4fv(uModelView, false, multiply(view, multiply(rotation, part)));
     gl.uniform1i(uMapping, mapping);
-    gl.uniform3fv(uNormalColor, color);
+    gl.uniform3fv(uNormalColor, color);  // #3: gold unless the part says otherwise
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.bindVertexArray(mesh.vao);
     gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
